@@ -119,23 +119,32 @@ def next_adjudication(now):
 # Scheduler Thread
 # ============================
 
+last_reminder_date = None
+last_adj_date = None
+
 def scheduler_loop():
+    global last_reminder_date, last_adj_date
+
     while True:
         now = datetime.datetime.now(CST)
-        now_str = now.strftime("%H:%M")
+        today = now.date()
 
-        # Reminder at 10:00 AM CST
-        if now_str == f"{REMINDER_HOUR:02d}:00":
-            send("⏳ Reminder: Adjudication in 2 hours!")
+        # Reminder at 11:00 AM CST
+        if now.hour == REMINDER_HOUR and now.minute == 0:
+            if last_reminder_date != today:
+                send("⏳ Reminder: Adjudication in 1 hour!")
+                last_reminder_date = today
 
         # Adjudication at 12:00 PM CST
-        if now_str == f"{ADJUDICATION_HOUR:02d}:00":
-            tomorrow = now + datetime.timedelta(days=1)
-            send(
-                f"🕒 Adjudication has completed!\n"
-                f"Next adjudication: {tomorrow.strftime('%Y-%m-%d 12:00 CST')}\n"
-                f"Game: {GAME_URL}"
-            )
+        if now.hour == ADJUDICATION_HOUR and now.minute == 0:
+            if last_adj_date != today:
+                tomorrow = now + datetime.timedelta(days=1)
+                send(
+                    f"🕒 Adjudication complete!\n"
+                    f"Next adjudication: {tomorrow.strftime('%Y-%m-%d 12:00 CST')}\n"
+                    f"Game: {GAME_URL}"
+                )
+                last_adj_date = today
 
         time.sleep(30)
 
