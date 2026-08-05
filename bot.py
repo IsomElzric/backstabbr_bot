@@ -192,6 +192,19 @@ def webhook():
 
         send("\n".join(lines), chat_id)
 
+    elif text.startswith("/debug"):
+        session_cookie = os.environ.get("BACKSTABBR_SESSION")
+        game_url = os.environ.get("GAME_URL")
+
+        r = requests.get(
+            game_url,
+            cookies={"session": session_cookie} if session_cookie else None,
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+
+        html = r.text[:500]  # first 500 chars
+        send(f"DEBUG HTML:\n{html}", chat_id)
+
     return "OK", 200
 
 
