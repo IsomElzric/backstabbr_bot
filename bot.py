@@ -56,10 +56,17 @@ def send(msg, chat_id=CHAT_ID):
 # ---------- Backstabbr scraping ----------
 
 def get_phase_and_deadline():
+    session_cookie = os.environ.get("BACKSTABBR_SESSION")
+    game_url = os.environ.get("GAME_URL")
+
+    if not game_url:
+        print("ERROR: GAME_URL is not set")
+        return "Unknown phase", "Unknown deadline"
+
     html = requests.get(
-                        GAME_URL,
-                        cookies={"session": os.environ.get("BACKSTABBR_SESSION")}
-                        ).text
+        game_url,
+        cookies={"session": session_cookie} if session_cookie else None
+    ).text
 
     soup = BeautifulSoup(html, "html.parser")
 
