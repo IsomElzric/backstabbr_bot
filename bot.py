@@ -56,7 +56,11 @@ def send(msg, chat_id=CHAT_ID):
 # ---------- Backstabbr scraping ----------
 
 def get_phase_and_deadline():
-    html = requests.get(GAME_URL).text
+    html = requests.get(
+                        GAME_URL,
+                        cookies={"session": os.environ.get("BACKSTABBR_SESSION")}
+                        ).text
+
     soup = BeautifulSoup(html, "html.parser")
 
     phase_el = soup.select_one(".phase-title")
