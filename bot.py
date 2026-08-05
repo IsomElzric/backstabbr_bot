@@ -1,259 +1,169 @@
 import os
-import time
-import json
-import re
-import random
-import threading
-
 import requests
-from bs4 import BeautifulSoup
+import datetime
+import threading
+import time
 from flask import Flask, request
 
-GAME_URL = os.environ.get("GAME_URL")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
-STATE_FILE = "state.json"
-
 app = Flask(__name__)
 
+# ============================
+# Telegram Send Function
+# ============================
 
-# ---------- State helpers ----------
-
-def load_state():
-    if not os.path.exists(STATE_FILE):
-        return {
-            "last_phase": None,
-            "warned_phase": None,
-            "last_season_from": None,
-            "last_season_to": None,
-        }
-    with open(STATE_FILE, "r") as f:
-        return json.load(f)
-
-
-def save_state(state):
-    with open(STATE_FILE, "w") as f:
-        json.dump(state, f)
-
-
-state = load_state()
-
-
-# ---------- Telegram helpers ----------
-
-def send(msg, chat_id=CHAT_ID):
-    if not TELEGRAM_TOKEN or not chat_id:
-        print("Missing TELEGRAM_TOKEN or CHAT_ID")
-        return
-
+def send(msg):
     requests.get(
         f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-        params={"chat_id": chat_id, "text": msg}
+        params={"chat_id": CHAT_ID, "text": msg}
     )
 
+# ============================
+# Public Commands
+# ============================
 
-# ---------- Backstabbr scraping ----------
+@app.route("/ping", methods=["GET"])
+def ping():
+    responses = [
+        # Friendly diplomat
+        "Alive and well — unlike your alliance next season. ⚔️",
+        "Standing by, ready to negotiate… or betray.",
+        "Your loyal diplomatic attaché reporting for duty. 🤝",
 
-def get_phase_and_deadline():
-    session_cookie = os.environ.get("BACKSTABBR_SESSION")
-    game_url = os.environ.get("GAME_URL")
+        # Suspiciously helpful
+        "I assure you, my intentions are peaceful.",
+        "Trust me. No really. Trust me. 👀",
+        "I’m absolutely not supporting an attack on you right now.",
 
-    if not game_url:
-        print("ERROR: GAME_URL is not set")
-        return "Unknown phase", "Unknown deadline"
+        # Classic Diplomacy humor
+        "Still here — unlike Italy after 1903. 🇮🇹💀",
+        "Operational. Austria should be worried.",
+        "Alive, unlike Russia in most games. ❄️",
 
-    html = requests.get(
-        game_url,
-        cookies={"session": session_cookie} if session_cookie else None
-    ).text
+        # Scheming tone
+        "I’m listening… and plotting.",
+        "The bot is active. The stab is inevitable. 🗡️",
+        "Alive and quietly moving pieces behind the scenes.",
 
-    soup = BeautifulSoup(html, "html.parser")
+        # Overly formal
+        "The Ministry of Foreign Affairs acknowledges your inquiry.",
+        "Your message has been received and filed under “suspicious.”",
+        "Diplomatic channels are open and monitored.",
 
-    phase_el = soup.select_one(".phase-title")
-    deadline_el = soup.select_one(".deadline-timer")
+        # Deadpan
+        "Yes, I’m alive. Can’t say the same for your fleets.",
+        "Online. Watching. Judging your orders.",
+        "Present. Unlike your army in Burgundy.",
 
-    phase = phase_el.get_text(strip=True) if phase_el else "Unknown phase"
-    deadline = deadline_el.get_text(strip=True) if deadline_el else "Unknown deadline"
+        # Encouraging
+        "Alive! You’ve got this — unless you don’t.",
+        "Standing by to help you survive… barely.",
+        "I believe in you. Someone has to.",
+    ]
+    import random
+    return {"response": random.choice(responses)}
 
-    return phase, deadline
+@app.route("/help", methods=["GET"])
+def help():
+    return {
+        "commands": {
+            "/ping": "Check if the bot is alive.",
+            "/status": "Show next adjudication time.",
+            "/gm": "Send a GM-flavored message.",
+        }
+    }
 
+# ============================
+# GM Message Endpoint
+# ============================
 
-def parse_deadline_to_minutes(deadline_text):
-    # Examples:
-    # "1 hour 23 minutes"
-    # "23 minutes"
-    # "2 hours"
-    text = deadline_text.lower()
+@app.route("/gm", methods=["POST"])
+def gm():
+    data = request.json
+    msg = data.get("message", "").strip()
+    if not msg:
+        return {"error": "Message empty"}, 400
 
-    hours = 0
-    minutes = 0
+    send(f"GM Update: {msg}")
+    return {"status": "sent"}
 
-    h_match = re.search(r"(\d+)\s*hour", text)
-    m_match = re.search(r"(\d+)\s*minute", text)
+# ============================
+# Manual Send Endpoint (Front-end)
+# ============================
 
-    if h_match:
-        hours = int(h_match.group(1))
-    if m_match:
-        minutes = int(m_match.group(1))
+@app.route("/send", methods=["POST"])
+def send_message():
+    data = request.json
+    msg = data.get("message", "").strip()
+    if not msg:
+        return {"error": "Message empty"}, 400
 
-    total = hours * 60 + minutes
-    return total if total > 0 else None
+    send(msg)
+    return {"status": "sent"}
 
+# ============================
+# Adjudication Schedule
+# ============================
 
-def extract_season_label(phase_text):
-    # e.g. "Spring 1903 – Orders" -> "Spring 1903"
-    return phase_text.split("–")[0].strip() if "–" in phase_text else phase_text.strip()
+# Defaults (you can override via front-end)
+ADJUDICATION_TIME = "12:00"
+REMINDER_TIME = "11:00"
+START_DATE = "2026-08-06"
 
+@app.route("/schedule", methods=["POST"])
+def update_schedule():
+    global ADJUDICATION_TIME, REMINDER_TIME, START_DATE
 
-# ---------- /ping personality ----------
+    data = request.json
+    ADJUDICATION_TIME = data.get("adjudication_time", ADJUDICATION_TIME)
+    REMINDER_TIME = data.get("reminder_time", REMINDER_TIME)
+    START_DATE = data.get("start_date", START_DATE)
 
-PING_LINES = [
-    # Friendly diplomat
-    "Alive and well — unlike your alliance next season. ⚔️",
-    "Standing by, ready to negotiate… or betray.",
-    "Your loyal diplomatic attaché reporting for duty. 🤝",
+    return {
+        "status": "updated",
+        "adjudication_time": ADJUDICATION_TIME,
+        "reminder_time": REMINDER_TIME,
+        "start_date": START_DATE
+    }
 
-    # Suspiciously helpful
-    "I assure you, my intentions are peaceful.",
-    "Trust me. No really. Trust me. 👀",
-    "I’m absolutely not supporting an attack on you right now.",
+@app.route("/status", methods=["GET"])
+def status():
+    return {
+        "adjudication_time": ADJUDICATION_TIME,
+        "reminder_time": REMINDER_TIME,
+        "start_date": START_DATE
+    }
 
-    # Classic Diplomacy humor
-    "Still here — unlike Italy after 1903. 🇮🇹💀",
-    "Operational. Austria should be worried.",
-    "Alive, unlike Russia in most games. ❄️",
+# ============================
+# Daily Scheduler Thread
+# ============================
 
-    # Scheming tone
-    "I’m listening… and plotting.",
-    "The bot is active. The stab is inevitable. 🗡️",
-    "Alive and quietly moving pieces behind the scenes.",
-
-    # Overly formal
-    "The Ministry of Foreign Affairs acknowledges your inquiry.",
-    "Your message has been received and filed under “suspicious.”",
-    "Diplomatic channels are open and monitored.",
-
-    # Deadpan
-    "Yes, I’m alive. Can’t say the same for your fleets.",
-    "Online. Watching. Judging your orders.",
-    "Present. Unlike your army in Burgundy.",
-
-    # Encouraging
-    "Alive! You’ve got this — unless you don’t.",
-    "Standing by to help you survive… barely.",
-    "I believe in you. Someone has to.",
-]
-
-
-# ---------- Telegram webhook ----------
-
-@app.route("/", methods=["POST"])
-def webhook():
-    data = request.json or {}
-
-    message = data.get("message")
-    if not message:
-        return "OK", 200
-
-    chat_id = message["chat"]["id"]
-    text = message.get("text", "")
-
-    if text.startswith("/ping"):
-        line = random.choice(PING_LINES)
-        send(line, chat_id)
-
-    elif text.startswith("/phase"):
-        phase, _ = get_phase_and_deadline()
-        send(f"Current phase: {phase}", chat_id)
-
-    elif text.startswith("/deadline"):
-        _, deadline = get_phase_and_deadline()
-        send(f"Deadline: {deadline}", chat_id)
-
-    elif text.startswith("/status"):
-        phase, deadline = get_phase_and_deadline()
-        minutes = parse_deadline_to_minutes(deadline)
-
-        orders_due = "Yes" if "orders" in phase.lower() else "No"
-
-        if state.get("last_season_from") and state.get("last_season_to"):
-            last_change = f"{state['last_season_from']} → {state['last_season_to']}"
-        else:
-            last_change = "Unknown"
-
-        lines = [
-            f"Phase: {phase}",
-            f"Deadline: {deadline}",
-            f"Time until adjudication: {minutes} minutes" if minutes is not None else "Time until adjudication: Unknown",
-            f"Orders due: {orders_due}",
-            f"Last season change: {last_change}",
-        ]
-
-        send("\n".join(lines), chat_id)
-
-    elif text.startswith("/debug"):
-        session_cookie = os.environ.get("BACKSTABBR_SESSION")
-        game_url = os.environ.get("GAME_URL")
-
-        r = requests.get(
-            game_url,
-            cookies={"session": session_cookie} if session_cookie else None,
-            headers={"User-Agent": "Mozilla/5.0"}
-        )
-
-        html = r.text[:500]  # first 500 chars
-        send(f"DEBUG HTML:\n{html}", chat_id)
-
-    return "OK", 200
-
-
-# ---------- Background Backstabbr loop ----------
-
-def background_loop():
-    global state
-
+def scheduler_loop():
     while True:
-        try:
-            phase, deadline = get_phase_and_deadline()
-            current_season = extract_season_label(phase)
+        now = datetime.datetime.now()
 
-            # Detect season change
-            if state["last_phase"]:
-                prev_season = extract_season_label(state["last_phase"])
-                if current_season != prev_season:
-                    send(f"🆕 New season started: {current_season}")
-                    state["last_season_from"] = prev_season
-                    state["last_season_to"] = current_season
-                    state["warned_phase"] = None
+        # Format times
+        now_str = now.strftime("%H:%M")
+        today_str = now.strftime("%Y-%m-%d")
 
-            state["last_phase"] = phase
+        # Reminder
+        if now_str == REMINDER_TIME:
+            send("⏳ Reminder: Adjudication in 1 hour!")
 
-            # Adjudication warning (about an hour)
-            if state["warned_phase"] != phase:
-                minutes = parse_deadline_to_minutes(deadline)
-                if minutes is not None and minutes <= 60:
-                    send(f"⏳ Adjudication in about an hour! Current phase: {phase}")
-                    state["warned_phase"] = phase
+        # Adjudication
+        if now_str == ADJUDICATION_TIME:
+            send("🕒 Adjudication time has arrived!")
 
-            save_state(state)
+        time.sleep(30)  # check twice per minute
 
-        except Exception as e:
-            print("Error in loop:", e)
+# Start scheduler thread
+threading.Thread(target=scheduler_loop, daemon=True).start()
 
-        time.sleep(60)
-
-
-# ---------- Start everything ----------
-
-def start_background():
-    t = threading.Thread(target=background_loop, daemon=True)
-    t.start()
-
-
-start_background()
+# ============================
+# Run Flask
+# ============================
 
 if __name__ == "__main__":
-    # Render will expect a port; use PORT env or default 10000
-    port = int(os.environ.get("PORT", "10000"))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=10000)
