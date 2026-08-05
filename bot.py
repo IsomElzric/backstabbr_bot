@@ -37,16 +37,34 @@ def telegram_webhook():
 
     # Handle commands
     if text == "/ping":
-        return ping()
+        import random
+        responses = [
+            "Alive and well — unlike your alliance next season. ⚔️",
+            "Standing by, ready to negotiate… or betray.",
+            "Your loyal diplomatic attaché reporting for duty. 🤝",
+        ]
+        send(random.choice(responses))
+        return {"status": "sent"}
 
     if text == "/help":
-        return help()
+        send(
+            "Available commands:\n"
+            "/ping - Check if the bot is alive\n"
+            "/status - Show adjudication schedule\n"
+            "/gm <msg> - Send GM update\n"
+            "/remind - Send adjudication reminder"
+        )
+        return {"status": "sent"}
 
     if text == "/status":
-        return status()
+        send(
+            f"Adjudication: {ADJUDICATION_TIME}\n"
+            f"Reminder: {REMINDER_TIME}\n"
+            f"Start Date: {START_DATE}"
+        )
+        return {"status": "sent"}
 
     if text.startswith("/gm"):
-        # /gm Hello players!
         msg = text[3:].strip()
         if msg:
             send(f"GM Update: {msg}")
