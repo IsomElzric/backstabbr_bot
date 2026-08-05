@@ -83,13 +83,10 @@ REMINDER_HOUR = 10
 
 @app.route("/ping", methods=["GET"])
 def ping():
-    return {"response": random.choice(PING_RESPONSES)}
-
-@app.route("/status", methods=["GET"])
-def status():
     now = datetime.datetime.now(CST)
     next_adj = next_adjudication(now)
     return {
+        "response": random.choice(PING_RESPONSES),
         "next_adjudication": next_adj.strftime("%Y-%m-%d %H:%M %Z"),
         "game_url": GAME_URL
     }
@@ -141,7 +138,7 @@ def scheduler_loop():
             if last_adj_date != today:
                 tomorrow = now + datetime.timedelta(days=1)
                 send(
-                    f"🕒 Adjudication complete!\n"
+                    f"🕒 Adjudication has completed!\n"
                     f"Next adjudication: {tomorrow.strftime('%Y-%m-%d 12:00 CST')}\n"
                     f"Game: {GAME_URL}"
                 )
