@@ -75,7 +75,7 @@ FIRST_ADJUDICATION = CST.localize(datetime.datetime(2026, 8, 5, 12, 0))
 
 # Daily adjudication time (12 PM CST)
 ADJUDICATION_HOUR = 12
-REMINDER_HOUR = 10
+REMINDER_HOUR = 11
 
 # ============================
 # Webhook Commands
