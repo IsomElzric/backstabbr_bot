@@ -20,6 +20,50 @@ def send(msg):
         params={"chat_id": CHAT_ID, "text": msg}
     )
 
+@app.route("/webhook", methods=["POST"])
+def telegram_webhook():
+    data = request.json
+
+    if "message" not in data:
+        return {"status": "ignored"}
+
+    message = data["message"]
+    text = message.get("text", "").strip()
+    chat_id = message["chat"]["id"]
+
+    # Only respond to your configured chat
+    if str(chat_id) != str(CHAT_ID):
+        return {"status": "ignored"}
+
+    # Handle commands
+    if text == "/ping":
+        return ping()
+
+    if text == "/help":
+        return help()
+
+    if text == "/status":
+        return status()
+
+    if text.startswith("/gm"):
+        # /gm Hello players!
+        msg = text[3:].strip()
+        if msg:
+            send(f"GM Update: {msg}")
+        return {"status": "sent"}
+
+    if text.startswith("/send"):
+        msg = text[5:].strip()
+        if msg:
+            send(msg)
+        return {"status": "sent"}
+
+    if text == "/remind":
+        send("⏳ Reminder: Adjudication in 1 hour!")
+        return {"status": "sent"}
+
+    return {"status": "unknown_command"}
+
 # ============================
 # Public Commands
 # ============================
