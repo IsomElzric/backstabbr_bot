@@ -126,7 +126,8 @@ def scheduler_loop():
     global last_reminder_date, last_adj_date
 
     while True:
-        now = datetime.datetime.now(CST)
+        utc_now = datetime.datetime.utcnow().replace(tzinfo=pytz.utc)
+        now = utc_now.astimezone(CST)
         today = now.date()
 
         # Reminder at 11:00 AM CST
