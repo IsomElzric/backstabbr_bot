@@ -162,12 +162,10 @@ def telegram_webhook():
         text = data["message"].get("text", "")
         chat_id = data["message"]["chat"]["id"]
 
-        # Handle /ping command
         if text.strip() == "/ping":
-            # Call your own /ping endpoint
-            resp = requests.get(f"https://{os.environ.get('RENDER_EXTERNAL_URL')}/ping").json()
+            # Call your own /ping endpoint using request.host_url
+            resp = requests.get(f"{request.host_url}ping").json()
 
-            # Build Telegram message from parsed state
             msg = (
                 f"📅 {resp.get('season')} {resp.get('year')} — {resp.get('phase')}\n"
                 f"⏱️ Next adjudication: {resp.get('next_adjudication')}\n"
