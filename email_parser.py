@@ -16,8 +16,8 @@ def parse_backstabbr_email(body):
         "game_url": None,
     }
 
-    # Detect game start email
-    if "Your game on Backstabbr has begun!" in body:
+    # Detect game start email (robust)
+    if re.search(r"game has begun", body, re.IGNORECASE):
         state["phase"] = "Game Start"
         state["game_started"] = True
 
