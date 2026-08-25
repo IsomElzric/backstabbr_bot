@@ -6,6 +6,8 @@ import time
 import pytz
 import requests
 from flask import Flask, request
+from email_reader import get_latest_backstabbr_email
+from email_parser import parse_backstabbr_email
 
 app = Flask(__name__)
 
@@ -85,28 +87,46 @@ WINTER_HOUR = 12
 @app.route("/ping", methods=["GET"])
 def ping():
     now = datetime.datetime.now(CST)
-    next_adj = next_adjudication(now)
-    return {
-        "response": random.choice(PING_RESPONSES),
-        "next_adjudication": next_adj.strftime("%Y-%m-%d %H:%M %Z"),
-        "game_url": GAME_URL
-    }
 
-@app.route("/gm", methods=["POST"])
-def gm():
-    data = request.json
-    msg = data.get("message", "").strip()
-    if not msg:
-        return {"error": "Message empty"}, 400
+    email_body = get_latest_backstabbr_email()
+    if not email_body:
+        return {"error": "No Backstabbr emails found"}
 
-    r = requests.get(
-        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-        params={"chat_id": CHAT_ID, "text": f"GM Update: {msg}"}
+    state = parse_backstabbr_email(email_body)
+
+    # Fallback if email didn't include next adjudication
+    next_adj = state["next_adj"] or next_adjudication(now)
+
+    # Build Telegram message
+    msg = (
+        f"🗡️ {random.choice(PING_RESPONSES)}\n\n"
+        f"📅 {state['season']} {state['year']} — {state['phase']}\n"
+        f"⏱️ Next adjudication: {next_adj.strftime('%Y-%m-%d %H:%M %Z')}\n\n"
     )
 
-    print("Telegram response:", r.text)
+    if state["retreats"]:
+        msg += "🚨 Retreats required:\n"
+        for p in state["retreats"]:
+            msg += f"• {p}\n"
+        msg += "\n"
 
-    return {"status": "sent"}
+    if state["builds"]:
+        msg += "🏗️ Builds:\n"
+        for p, n in state["builds"].items():
+            msg += f"• {p}: {n} units\n"
+        msg += "\n"
+
+    send(msg)
+
+    return {
+        "season": state["season"],
+        "year": state["year"],
+        "phase": state["phase"],
+        "next_adjudication": next_adj.strftime("%Y-%m-%d %H:%M %Z"),
+        "retreats": state["retreats"],
+        "builds": state["builds"],
+        "game_url": GAME_URL
+    }
 
 # ============================
 # Adjudication Logic
