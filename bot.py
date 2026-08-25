@@ -76,6 +76,7 @@ FIRST_ADJUDICATION = CST.localize(datetime.datetime(2026, 8, 5, 12, 0))
 # Daily adjudication time (12 PM CST)
 ADJUDICATION_HOUR = 12
 REMINDER_HOUR = 11
+WINTER_HOUR = 12
 
 # ============================
 # Webhook Commands
@@ -98,7 +99,13 @@ def gm():
     if not msg:
         return {"error": "Message empty"}, 400
 
-    send(f"GM Update: {msg}")
+    r = requests.get(
+        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+        params={"chat_id": CHAT_ID, "text": f"GM Update: {msg}"}
+    )
+
+    print("Telegram response:", r.text)
+
     return {"status": "sent"}
 
 # ============================
