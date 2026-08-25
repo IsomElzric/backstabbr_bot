@@ -94,6 +94,19 @@ def ping():
 
     state = parse_backstabbr_email(email_body)
 
+    # Handle game start
+    if state.get("game_started"):
+        msg = (
+            f"🎉 {random.choice(PING_RESPONSES)}\n\n"
+            f"🟢 The game has begun!\n"
+            f"Visit the game page:\n{state['game_url']}"
+        )
+        send(msg)
+        return {
+            "phase": "Game Start",
+            "game_url": state["game_url"]
+        }
+
     # Fallback if email didn't include next adjudication
     next_adj = state["next_adj"] or next_adjudication(now)
 

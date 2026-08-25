@@ -12,7 +12,21 @@ def parse_backstabbr_email(body):
         "next_adj": None,
         "retreats": [],
         "builds": {},
+        "game_started": False,
+        "game_url": None,
     }
+
+    # Detect game start email
+    if "Your game on Backstabbr has begun!" in body:
+        state["phase"] = "Game Start"
+        state["game_started"] = True
+
+        # Extract game URL
+        url_match = re.search(r"https://www\.backstabbr\.com/game/[^\s]+", body)
+        if url_match:
+            state["game_url"] = url_match.group(0)
+
+        return state
 
     # Phase line: "Fall 1903 — Orders"
     phase_match = re.search(r"(Spring|Summer|Fall|Winter)\s+(\d{4}).*?(Orders|Retreats|Builds|Adjustments)", body)
