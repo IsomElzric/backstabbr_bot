@@ -154,6 +154,32 @@ def debug_email():
         "parsed_state": parsed
     }
 
+@app.route(f"/{TELEGRAM_TOKEN}", methods=["POST"])
+def telegram_webhook():
+    data = request.get_json()
+
+    if "message" in data:
+        text = data["message"].get("text", "")
+        chat_id = data["message"]["chat"]["id"]
+
+        # Handle /ping command
+        if text.strip() == "/ping":
+            # Call your own /ping endpoint
+            resp = requests.get(f"https://{os.environ.get('RENDER_EXTERNAL_URL')}/ping").json()
+
+            # Build Telegram message from parsed state
+            msg = (
+                f"📅 {resp.get('season')} {resp.get('year')} — {resp.get('phase')}\n"
+                f"⏱️ Next adjudication: {resp.get('next_adjudication')}\n"
+            )
+
+            requests.get(
+                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                params={"chat_id": chat_id, "text": msg}
+            )
+
+    return "OK"
+
 # ============================
 # Adjudication Logic
 # ============================
