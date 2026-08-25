@@ -162,19 +162,9 @@ def telegram_webhook():
         text = data["message"].get("text", "")
         chat_id = data["message"]["chat"]["id"]
 
-        if text.strip() == "/ping":
-            # Call your own /ping endpoint using request.host_url
-            resp = requests.get(f"{request.host_url}ping").json()
-
-            msg = (
-                f"📅 {resp.get('season')} {resp.get('year')} — {resp.get('phase')}\n"
-                f"⏱️ Next adjudication: {resp.get('next_adjudication')}\n"
-            )
-
-            requests.get(
-                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                params={"chat_id": chat_id, "text": msg}
-            )
+        if text.strip().startswith("/ping"):
+            # Call your own /ping route
+            requests.get(f"{request.host_url}ping")
 
     return "OK"
 
