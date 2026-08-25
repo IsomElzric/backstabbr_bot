@@ -128,6 +128,19 @@ def ping():
         "game_url": GAME_URL
     }
 
+@app.route("/debug_email", methods=["GET"])
+def debug_email():
+    email_body = get_latest_backstabbr_email()
+    if not email_body:
+        return {"error": "No Backstabbr emails found or IMAP failed"}
+
+    parsed = parse_backstabbr_email(email_body)
+
+    return {
+        "raw_email_body": email_body,
+        "parsed_state": parsed
+    }
+
 # ============================
 # Adjudication Logic
 # ============================
